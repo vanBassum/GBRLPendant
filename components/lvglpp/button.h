@@ -10,7 +10,24 @@ namespace LVGL
 	public:
 		Callback<void, Button*> OnClicked;
 		
+	private:
+		static void StaticCallback(lv_event_t * e)
+		{
+			Button* button = (Button*)e->user_data;
+			lv_event_code_t code = lv_event_get_code(e);
+			
+			switch (code)
+			{
+			case LV_EVENT_CLICKED:
+				if (button->OnClicked.IsBound())
+					button->OnClicked.Invoke(button);
+				break;
+			default:
+				break;
+			}
+		}
 		
+	public:		
 		void SetPos(int x, int y)
 		{
 			if (lvglMutex.Take(pdMS_TO_TICKS(10)))
@@ -29,32 +46,20 @@ namespace LVGL
 			}
 		}
 		
-	private:
-		
-		static void StaticCallback(lv_event_t * e)
+		void Init(Widget& parent)
 		{
-			Button* button = (Button*)e->user_data;
-			lv_event_code_t code = lv_event_get_code(e);
+			if (handle != NULL)
+				return;
 			
-			switch (code)
+			if (lvglMutex.Take())
 			{
-			case LV_EVENT_CLICKED:
-				if (button->OnClicked.IsBound())
-					button->OnClicked.Invoke(button);
-				break;
-			default:
-				break;
+				handle = lv_btn_create(parent.handle);
+				lv_obj_set_pos(handle, 0, 0);
+				lv_obj_set_size(handle, 120, 50);
+				lv_obj_add_event_cb(handle, StaticCallback, LV_EVENT_ALL, this); /*Assign a callback to the button*/
+				handle->user_data = this;
+				lvglMutex.Give();
 			}
-		}
-		
-
-		
-		virtual void Create(lv_obj_t* parent) override
-		{
-			handle = lv_btn_create(parent);
-			lv_obj_set_pos(handle, 0, 0);
-			lv_obj_set_size(handle, 120, 50);
-			lv_obj_add_event_cb(handle, StaticCallback, LV_EVENT_ALL, this); /*Assign a callback to the button*/
 		}
 	};
 }

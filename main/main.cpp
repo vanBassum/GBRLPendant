@@ -64,11 +64,11 @@ void InitScreen1(LVGL::Screen& screen)
 	static LVGL::Button button;
 	static LVGL::Label label;
 	
-	screen.AddWidget(button);
-	button.AddWidget(label);
-	
+	button.Init(screen);
 	button.SetPos(0, 0);
 	button.OnClicked.Bind(ButtonNextClicked);
+	
+	label.Init(button);
 	label.SetText("Next");
 }
 
@@ -78,11 +78,11 @@ void InitScreen2(LVGL::Screen& screen)
 	static LVGL::Button button;
 	static LVGL::Label label;
 	
-	screen.AddWidget(button);
-	button.AddWidget(label);
-	
+	button.Init(screen);
 	button.SetPos(100, 0);
 	button.OnClicked.Bind(ButtonBackClicked);
+	
+	label.Init(button);
 	label.SetText("Back");
 }
 
@@ -94,8 +94,8 @@ void app_main(void)
 
 	LVGL::Init();
 	
-	screen1.InitActualScreen();
-	screen2.InitNewScreen();
+	screen1 = LVGL::FirstScreen;
+	screen2.Init();
 	InitScreen1(screen1);
 	InitScreen2(screen2);
 	

@@ -12,23 +12,23 @@
 
 namespace LVGL
 {
-	static Screen ActScreen;
+	static Screen FirstScreen;
 	
-	static Screen GetActualScreen()
-	{
-		return ActScreen;
-	}
 	
 	static void GuiTask(FreeRTOS::Task* task, void* args)
 	{
 		while (1) 
 		{
 			//5ms intervals, https://docs.lvgl.io/latest/en/html/porting/task-handler.html
-			vTaskDelay(pdMS_TO_TICKS(10));
+			vTaskDelay(pdMS_TO_TICKS(5));
 			if (lvglMutex.Take(pdMS_TO_TICKS(10)))
 			{
 				lv_task_handler();
 				lvglMutex.Give();
+			}
+			else
+			{
+				ESP_LOGE("LVGLPP", "Mutex taken, skipped lv_task_handler");
 			}
 		}
 	}
@@ -75,16 +75,19 @@ namespace LVGL
 		indev_drv.read_cb = touch_driver_read;
 		lv_indev_drv_register(&indev_drv);
 	
+		/* Fetch first screen */
+		
+		
 		/* Create and start a periodic timer interrupt to call lv_tick_inc */
-	
-		lvglTimer.Init("lvgl", pdMS_TO_TICKS(100), true);
+		lvglTimer.Init("lvgl", pdMS_TO_TICKS(1), true);
 		lvglTimer.SetCallback(&Tick);
 		lvglTimer.Start();
 	
 		lvglTask.SetCallback(&GuiTask);
 		lvglTask.RunPinned("LVGL", 5, 1024 * 8, 0, NULL);
 		
-		ActScreen.InitActualScreen();
+
+		FirstScreen.InitActualScreen();
 	}
 
 
