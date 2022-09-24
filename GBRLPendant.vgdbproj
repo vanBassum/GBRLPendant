@@ -46,7 +46,7 @@
     <UseCCache>false</UseCCache>
     <ProjectModeSettings>
       <ProjectItemSettings>
-        <GroupSourcesByTypes>true</GroupSourcesByTypes>
+        <GroupSourcesByTypes>false</GroupSourcesByTypes>
         <GroupSourcesByPaths>true</GroupSourcesByPaths>
         <GroupTargetsByPaths>true</GroupTargetsByPaths>
         <FollowCMakeSourceGroups>false</FollowCMakeSourceGroups>
@@ -58,6 +58,7 @@
         <BuildAllTargetsInSubdir>false</BuildAllTargetsInSubdir>
         <FoldSingleItemPathLevels>true</FoldSingleItemPathLevels>
       </ProjectItemSettings>
+      <TargetSpecificSettings />
       <SetLDLibraryPathFromDependentArtifacts>true</SetLDLibraryPathFromDependentArtifacts>
       <ProjectGUID>65bd6046-58ed-457c-8097-38f8914928f4</ProjectGUID>
       <VirtualFolders />
@@ -95,6 +96,7 @@
     <ShowMessageAfterExecuting>true</ShowMessageAfterExecuting>
   </CustomShortcuts>
   <UserDefinedVariables />
+  <ImportedPropertySheets />
   <CodeSense>
     <Enabled>Unknown</Enabled>
     <ExtraSettings>
@@ -110,13 +112,16 @@
   <Configurations>
     <VisualGDBConfiguration>
       <Name>Debug</Name>
-      <BuildSettingsExtension xsi:type="com.visualgdb.build.external.esp-idf.cmake.extension" />
+      <BuildSettingsExtension xsi:type="com.visualgdb.build.external.esp-idf.cmake.extension">
+        <SDKConfigFile>sdkconfig</SDKConfigFile>
+      </BuildSettingsExtension>
     </VisualGDBConfiguration>
     <VisualGDBConfiguration>
       <Name>Release</Name>
       <BuildSettingsExtension xsi:type="com.visualgdb.build.external.esp-idf.cmake.extension" />
     </VisualGDBConfiguration>
   </Configurations>
+  <ProgramArgumentsSuggestions />
   <Debug xsi:type="com.visualgdb.debug.embedded">
     <AdditionalStartupCommands />
     <AdditionalGDBSettings>

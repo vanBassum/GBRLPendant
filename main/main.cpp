@@ -16,7 +16,7 @@
 #include "lvglpp/lvgl.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
-
+#include <string>
 
 
 #define TAG "MAIN"
@@ -44,6 +44,289 @@ esp_err_t event_handler(void *ctx, system_event_t *event)
 {
     return ESP_OK;
 }
+
+
+class IntCircleBuffer
+{
+	FreeRTOS::Mutex mutex;
+	static const int bufSize = 64;
+	int wPtr = 0;
+	int rPtr = 0;
+	int sendCount[bufSize];
+	int sum = 0;
+public:
+	
+	void Enqueue(int i)
+	{
+		if (mutex.Take(0))
+		{
+			sum += i;
+			sendCount[wPtr++] = i;
+			if (wPtr >= bufSize)
+				wPtr = 0;
+		
+			if (rPtr == wPtr)
+				rPtr++;
+		
+			if (rPtr >= bufSize)
+				rPtr = 0;
+			mutex.Give();
+		}
+	}
+	
+	int Dequeue()
+	{
+		int result = -1;
+		if (mutex.Take(0))
+		{
+			if (rPtr != wPtr)
+			{
+				result = sendCount[rPtr++];
+				if (rPtr >= bufSize)
+					rPtr = 0;
+				sum -= result;
+			}
+			mutex.Give();
+		}
+		return result;
+	}
+	
+	int Sum()
+	{
+		int result = -1;
+		if (mutex.Take(0))
+		{
+			result = sum;
+			mutex.Give();
+		}
+		return result;
+	}
+	void Clear()
+	{
+		if (mutex.Take(0))
+		{
+			sum = 0;
+			wPtr = rPtr = 0;
+			mutex.Give();
+		}
+	}
+};
+
+//https://github.com/terjeio/grblHAL/blob/master/drivers/ESP32/main/grbl/alarms.h
+enum class Alarms
+{
+	None = 0,
+    HardLimit = 1,
+    SoftLimit = 2,
+    AbortCycle = 3,
+    ProbeFailInitial = 4,
+    ProbeFailContact = 5,
+    HomingFailReset = 6,
+    HomingFailDoor = 7,
+    FailPulloff = 8,
+    HomingFailApproach = 9,
+    EStop = 10,
+    HomingRequried = 11,
+    LimitsEngaged = 12,
+    ProbeProtect = 13,
+    Spindle = 14,
+    HomingFailAutoSquaringApproach = 15,
+    SelftestFailed = 16,
+    MotorFault = 17
+};
+
+//https://github.com/bdring/Grbl_Esp32/blob/main/Grbl_Esp32/src/Error.h
+enum class Errors
+{
+	Ok                          = 0,
+    ExpectedCommandLetter       = 1,
+    BadNumberFormat             = 2,
+    InvalidStatement            = 3,
+    NegativeValue               = 4,
+    SettingDisabled             = 5,
+    SettingStepPulseMin         = 6,
+    SettingReadFail             = 7,
+    IdleError                   = 8,
+    SystemGcLock                = 9,
+    SoftLimitError              = 10,
+    Overflow                    = 11,
+    MaxStepRateExceeded         = 12,
+    CheckDoor                   = 13,
+    LineLengthExceeded          = 14,
+    TravelExceeded              = 15,
+    InvalidJogCommand           = 16,
+    SettingDisabledLaser        = 17,
+    HomingNoCycles              = 18,
+    GcodeUnsupportedCommand     = 20,
+    GcodeModalGroupViolation    = 21,
+    GcodeUndefinedFeedRate      = 22,
+    GcodeCommandValueNotInteger = 23,
+    GcodeAxisCommandConflict    = 24,
+    GcodeWordRepeated           = 25,
+    GcodeNoAxisWords            = 26,
+    GcodeInvalidLineNumber      = 27,
+    GcodeValueWordMissing       = 28,
+    GcodeUnsupportedCoordSys    = 29,
+    GcodeG53InvalidMotionMode   = 30,
+    GcodeAxisWordsExist         = 31,
+    GcodeNoAxisWordsInPlane     = 32,
+    GcodeInvalidTarget          = 33,
+    GcodeArcRadiusError         = 34,
+    GcodeNoOffsetsInPlane       = 35,
+    GcodeUnusedWords            = 36,
+    GcodeG43DynamicAxisError    = 37,
+    GcodeMaxValueExceeded       = 38,
+    PParamMaxExceeded           = 39,
+    FsFailedMount               = 60, // SD Failed to mount
+    FsFailedRead                = 61, // SD Failed to read file
+    FsFailedOpenDir             = 62, // SD card failed to open directory
+    FsDirNotFound               = 63, // SD Card directory not found
+    FsFileEmpty                 = 64, // SD Card directory not found
+    FsFileNotFound              = 65, // SD Card file not found
+    FsFailedOpenFile            = 66, // SD card failed to open file
+    FsFailedBusy                = 67, // SD card is busy
+    FsFailedDelDir              = 68,
+    FsFailedDelFile             = 69,
+    BtFailBegin                 = 70, // Bluetooth failed to start
+    WifiFailBegin               = 71, // WiFi failed to start
+    NumberRange                 = 80, // Setting number range problem
+    InvalidValue                = 81, // Setting string problem
+    MessageFailed               = 90,
+    NvsSetFailed                = 100,
+    NvsGetStatsFailed           = 101,
+    AuthenticationFailed        = 110,
+    Eol                         = 111,
+    AnotherInterfaceBusy        = 120,
+    JogCancelled                = 130,
+};
+
+
+class UartClient
+{	
+public:
+	Callback<void, UartClient*, Alarms> OnAlarm;
+	Callback<void, UartClient*, Errors> OnError;
+	
+private:
+	uart_port_t portNum = NULL;
+	static const size_t rxBufSize = 128;
+	static const size_t grblBufSize = 128;
+	FreeRTOS::Task receiveTask;
+	FreeRTOS::Mutex sendMutex;
+	IntCircleBuffer sendSize;
+	
+	
+	void HandleFrame(std::string frame)
+	{
+		//Beware, this is called from RX task, don't do anything extensive
+		if (frame.rfind("ALARM", 0) == 0) //hmm casing, this will be annoying
+		{
+			Alarms alarm = std::stoi(frame, 6);
+			if (OnAlarm.IsBound())
+				OnAlarm.Invoke(this, alarm);
+			sendSize.Clear();
+		}
+		else if (frame.rfind("error", 0) == 0) 
+		{
+			Errors error = std::stoi(frame, 6);
+			if (OnError.IsBound())
+				OnError.Invoke(this, error);
+			sendSize.Clear();
+		}
+		else if (frame == "ok")
+		{
+			sendSize.Dequeue();
+		}
+		else
+		{
+			switch
+						
+		}
+	}
+
+	void RxTask(FreeRTOS::Task* task, void* args)
+	{
+		char rxBuffer[rxBufSize];
+		size_t wrPtr = 0;
+		while (1)
+		{
+			wrPtr += uart_read_bytes(portNum, &rxBuffer[wrPtr], (rxBufSize - 1), 20 / portTICK_PERIOD_MS); //Timeout was 20 / portTICK_PERIOD_MS)
+			if (wrPtr > 0)
+			{
+				char* start = rxBuffer;
+				char* end = strchr(rxBuffer, '\n');
+				int length = end - start + 1; //Also consume the \n char
+				if (length > 0)
+				{
+					std::string frame;
+					std::copy(start, end, frame);
+					wrPtr -= length;
+					HandleFrame(frame);
+				}
+			}
+		}
+	}
+	
+	
+	bool DirectCommand(char firstChar)
+	{
+		switch (firstChar)
+		{
+		case '?': return true;
+		default: return false;
+		}
+	}
+	
+	
+	bool Write(std::string frame)
+	{
+		
+	}
+	
+	
+public:
+	
+	
+	void Init(const uart_config_t config, gpio_num_t rx, gpio_num_t tx, uart_port_t portNum)
+	{
+		this->portNum = portNum;
+		int intr_alloc_flags = 0;
+		ESP_ERROR_CHECK(uart_driver_install(portNum, rxBufSize * 2, 0, 0, NULL, intr_alloc_flags));
+		ESP_ERROR_CHECK(uart_param_config(portNum, &config));
+		ESP_ERROR_CHECK(uart_set_pin(portNum, rx, tx, -1, -1));
+		receiveTask.SetCallback(this, &UartClient::RxTask);
+		receiveTask.Run("UartClient RX", 7, 1024, NULL);
+	}
+	
+
+	
+	bool TrySend(std::string frame)
+	{
+		int length = frame.length();
+		if (length == 0)
+			return false;
+		
+		int space = grblBufSize - sendSize.Sum();
+		bool fits = space >= length;
+		bool direct = DirectCommand(frame[0]);
+
+		if (fits || direct)
+		{
+			if (sendMutex.Take())
+			{
+				if (!direct)
+					sendSize.Enqueue(length);
+				uart_write_bytes(portNum, frame.c_str(), length);
+				sendMutex.Give();
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	
+	
+};
 
 
 void Uart()
