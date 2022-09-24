@@ -23,8 +23,9 @@ namespace LVGL
 	{
 		while (1) 
 		{
+			//5ms intervals, https://docs.lvgl.io/latest/en/html/porting/task-handler.html
 			vTaskDelay(pdMS_TO_TICKS(10));
-			if (lvglMutex.Take())
+			if (lvglMutex.Take(pdMS_TO_TICKS(10)))
 			{
 				lv_task_handler();
 				lvglMutex.Give();
@@ -34,7 +35,12 @@ namespace LVGL
 	
 	static void Tick(FreeRTOS::Timer* t)
 	{
-		lv_tick_inc(pdTICKS_TO_MS(t->GetPeriod()));
+		//https://docs.lvgl.io/latest/en/html/porting/tick.html Should be done differently, see if we can find a tick hook in freertos
+		if (lvglMutex.Take(pdTICKS_TO_MS(10)))
+		{
+			lv_tick_inc(pdTICKS_TO_MS(t->GetPeriod()));
+			lvglMutex.Give();
+		}
 	}
 		
 	static void Init()

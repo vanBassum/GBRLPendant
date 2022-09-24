@@ -10,10 +10,10 @@ namespace LVGL
 {
 	class Screen : public Widget
 	{
-protected:
-		virtual lv_obj_t* Create(lv_obj_t* parent) override
+	protected:
+		virtual void Create(lv_obj_t* parent) override
 		{
-			return NULL;
+			
 		}
 		
 	public:
@@ -24,10 +24,34 @@ protected:
 		
 		void InitActualScreen()
 		{
-			if (handle == NULL)
-				handle = lv_scr_act();
+			if (lvglMutex.Take(pdMS_TO_TICKS(10)))
+			{
+				if (handle == NULL)
+					handle = lv_scr_act();
+				lvglMutex.Give();
+			}
+
+		}
+		
+		void InitNewScreen()
+		{
+			if (lvglMutex.Take(pdMS_TO_TICKS(10)))
+			{
+				if (handle == NULL)
+					handle = lv_obj_create(NULL);
+				lvglMutex.Give();
+			}
+
 		}
 
+		void Show()
+		{
+			if (lvglMutex.Take(pdMS_TO_TICKS(10)))
+			{
+				lv_scr_load(handle);
+				lvglMutex.Give();
+			}
+		}
 	};	
 }
 

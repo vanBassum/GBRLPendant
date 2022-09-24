@@ -56,7 +56,7 @@
         <RedundantTargetMode>HideOuterProjectTargets</RedundantTargetMode>
         <SortSourcesByName>true</SortSourcesByName>
         <BuildAllTargetsInSubdir>false</BuildAllTargetsInSubdir>
-        <FoldSingleItemPathLevels>true</FoldSingleItemPathLevels>
+        <FoldSingleItemPathLevels>false</FoldSingleItemPathLevels>
       </ProjectItemSettings>
       <TargetSpecificSettings />
       <SetLDLibraryPathFromDependentArtifacts>true</SetLDLibraryPathFromDependentArtifacts>
@@ -72,6 +72,7 @@
           <Type>ESPIDF</Type>
         </IDFCheckout>
         <COMPort>COM6</COMPort>
+        <BaudRate>921600</BaudRate>
         <SuppressTestPrerequisiteChecks>false</SuppressTestPrerequisiteChecks>
         <UseCCache>false</UseCCache>
         <DeviceID>ESP32</DeviceID>

@@ -17,10 +17,7 @@
 #include <string>
 #include "lvglpp.h"
 
-
-
 #define TAG "MAIN"
-
 #define UART_PIN_TX			GPIO_NUM_26
 #define UART_PIN_RX			GPIO_NUM_25
 #define UART_PORT_NUM		UART_NUM_1
@@ -45,49 +42,50 @@ esp_err_t event_handler(void *ctx, system_event_t *event)
     return ESP_OK;
 }
 
+LVGL::Screen screen1;
+LVGL::Screen screen2;
 
-void Uart()
+void ButtonNextClicked(LVGL::Button* sender)
 {
-
-	uart_config_t uart_config = {
-		.baud_rate = UART_BAUD_RATE,
-		.data_bits = UART_DATA_8_BITS,
-		.parity = UART_PARITY_DISABLE,
-		.stop_bits = UART_STOP_BITS_1,
-		.flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-		.source_clk = UART_SCLK_APB,
-	};
-
-	int intr_alloc_flags = 0;
-	char *data = (char *) malloc(UART_BUF_SIZE);
-	
-	ESP_ERROR_CHECK(uart_driver_install(UART_PORT_NUM, UART_BUF_SIZE * 2, 0, 0, NULL, intr_alloc_flags));
-	ESP_ERROR_CHECK(uart_param_config(UART_PORT_NUM, &uart_config));
-	ESP_ERROR_CHECK(uart_set_pin(UART_PORT_NUM, UART_PIN_TX, UART_PIN_RX, -1, -1));
-	
-	ESP_LOGI("DATA", "Uart started");
-	
-	while (1) {
-		// Read data from the UART
-		int len = uart_read_bytes(UART_PORT_NUM, data, (UART_BUF_SIZE - 1), 20 / portTICK_PERIOD_MS);
-		
-		if(len > 0)
-			ESP_LOGI("DATA", "data= %s", (char*)data);
-		
-		
-
-	}
-	
+	ESP_LOGI(TAG, "Next clicked");
+	screen2.Show();
 }
 
 
-void ButtonClicked(LVGL::Button* sender)
+
+void ButtonBackClicked(LVGL::Button* sender)
 {
-	// Write data back to the UART
-	char data[32];
-	int len = snprintf(data, 32, "$$\r\n");
-	uart_write_bytes(UART_PORT_NUM, (const char *) data, len);
+	ESP_LOGI(TAG, "Back clicked");
+	screen1.Show();
 }
+
+void InitScreen1(LVGL::Screen& screen)
+{
+	static LVGL::Button button;
+	static LVGL::Label label;
+	
+	screen.AddWidget(button);
+	button.AddWidget(label);
+	
+	button.SetPos(0, 0);
+	button.OnClicked.Bind(ButtonNextClicked);
+	label.SetText("Next");
+}
+
+
+void InitScreen2(LVGL::Screen& screen)
+{
+	static LVGL::Button button;
+	static LVGL::Label label;
+	
+	screen.AddWidget(button);
+	button.AddWidget(label);
+	
+	button.SetPos(100, 0);
+	button.OnClicked.Bind(ButtonBackClicked);
+	label.SetText("Back");
+}
+
 
 void app_main(void)
 {
@@ -96,22 +94,17 @@ void app_main(void)
 
 	LVGL::Init();
 	
-	LVGL::Label label;
-	LVGL::Button button;
-	LVGL::Button button2;
-	LVGL::Screen actScreen = LVGL::GetActualScreen();
+	screen1.InitActualScreen();
+	screen2.InitNewScreen();
+	InitScreen1(screen1);
+	InitScreen2(screen2);
+	
+	
 
-	actScreen.AddWidget(button);
-	button.OnClicked.Bind(ButtonClicked);
 	
-	actScreen.AddWidget(button2);
-	button2.SetPos(0, 100);
+
 	
-	button.AddWidget(label);
-	//label.SetAlignment(LV_ALIGN_CENTER);
-	//label.SetText("Yeah");
 	
-	Uart();
 	while (1)
 		vTaskDelay(1000 / portTICK_PERIOD_MS);
 	

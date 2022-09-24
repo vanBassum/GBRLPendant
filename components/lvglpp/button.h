@@ -13,12 +13,20 @@ namespace LVGL
 		
 		void SetPos(int x, int y)
 		{
-			lv_obj_set_pos(handle, x, y);
+			if (lvglMutex.Take(pdMS_TO_TICKS(10)))
+			{
+				lv_obj_set_pos(handle, x, y);
+				lvglMutex.Give();
+			}
 		}
 		
 		void SetSize(int width, int height)
 		{
-			lv_obj_set_size(handle, width, height);
+			if (lvglMutex.Take(pdMS_TO_TICKS(10)))
+			{
+				lv_obj_set_size(handle, width, height);
+				lvglMutex.Give();
+			}
 		}
 		
 	private:
@@ -39,17 +47,14 @@ namespace LVGL
 			}
 		}
 		
-		virtual void ApplyDefaultParameters() override
-		{ 
-			SetPos(0, 0);
-			SetSize(120, 50);
-			
-			lv_obj_add_event_cb(handle, StaticCallback, LV_EVENT_ALL, this);           /*Assign a callback to the button*/
-		}
+
 		
-		virtual lv_obj_t* Create(lv_obj_t* parent) override
+		virtual void Create(lv_obj_t* parent) override
 		{
-			return lv_btn_create(parent);
+			handle = lv_btn_create(parent);
+			lv_obj_set_pos(handle, 0, 0);
+			lv_obj_set_size(handle, 120, 50);
+			lv_obj_add_event_cb(handle, StaticCallback, LV_EVENT_ALL, this); /*Assign a callback to the button*/
 		}
 	};
 }
